@@ -42,7 +42,15 @@ The abroad server needs no open inbound ports.
 bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
 ```
 
-A simple menu comes up — pick a number, done.
+A simple menu comes up. Steps:
+
+1. On both servers: option 1 (install tunx), then option 2 (generate key) — the same key must be used on both sides
+2. Optional, recommended: link test — on one server run option 5, choice 1 (agent), then from the other server option 5, choice 2 (link) with the peer address
+3. On the entry server (Iran): option 3 — control port, exposed port, transport, key
+4. On the exit server (abroad): option 4 — connect to IRAN_IP:9000, forward to 127.0.0.1:443, same key
+5. Check with option 6 — both services should show active (running)
+
+Firewall: on the entry server open the control port and the exposed port, e.g. `ufw allow 9000` and `ufw allow 443`. The exit server needs no inbound ports.
 
 ### Manual
 
@@ -94,7 +102,15 @@ No UDP/QUIC yet, and no real port hopping. Found a bug? Open an issue.
 bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
 ```
 
-یه منوی ساده میاد بالا، عدد بزن، تموم.
+یه منوی ساده میاد بالا. مراحل:
+
+۱. روی هر دو سرور: گزینه ۱ (نصب tunx) و بعد گزینه ۲ (ساخت کلید) — همین یه کلید باید روی هر دو سرور یکسان باشه
+۲. اختیاری ولی توصیه می‌شه: تست لینک — روی یکی از سرورها گزینه ۵ و انتخاب ۱ (agent)، بعد از سرور دیگه گزینه ۵ و انتخاب ۲ (link) با آدرس سرور اول
+۳. روی سرور ورودی (ایران): گزینه ۳ — پورت کنترل، پورت اکسپوز، ترنسپورت و کلید رو بده
+۴. روی سرور خروجی (خارج): گزینه ۴ — به IP_ایران:9000 وصل شو، فوروارد به 127.0.0.1:443، همون کلید
+۵. با گزینه ۶ وضعیت رو چک کن — هر دو سرویس باید active (running) باشن
+
+فایروال: روی سرور ایران پورت کنترل و پورت اکسپوز رو باز کن، مثلاً ufw allow 9000 و ufw allow 443. سرور خارج هیچ پورت ورودی لازم نداره.
 
 ### دستی (اگه خواستی خودت کنترل کنی)
 
