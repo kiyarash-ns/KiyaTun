@@ -1,6 +1,6 @@
 # KiyaTun
 
-A lightweight reverse TCP tunnel in pure Go, zero external dependencies.
+KiyaTun — a lightweight reverse TCP tunnel in pure Go, zero external dependencies.
 
 Built for restricted networks (especially Iran <-> abroad) where the exit server must not expose any inbound ports.
 
@@ -20,11 +20,12 @@ Status: under active update and development — در حال آپدیت و توس
 
 - Reverse tunnel architecture — the abroad side dials out; no inbound ports needed there
 - AES-256-GCM encryption with fixed-size records
-- No fingerprint on the wire — a connection with a wrong key gets no response at all, just like a dead port (anti active-probing)
+- No fingerprint on the wire — no magic numbers, banners, or plaintext length fields. A connection with a wrong key gets no response at all, just like a dead port (anti active-probing)
 - Multiplexing — multiple streams over one control connection
-- CDN support — WebSocket transport passes through Arvan, Cloudflare, etc., exactly what CDNs proxy themselves
+- Transports: raw / tls / ws / wss
+- CDN support — WebSocket transport passes through Arvan, Cloudflare, etc. — exactly what CDNs proxy themselves
 - Real SSL certificate support — to anything inspecting the traffic, it looks like an ordinary HTTPS site
-- Built-in Link Doctor — test the path before you tunnel: ping, packet loss, jitter, MTU and throughput, measured per direction (filtering is often one-way; a normal test will fool you)
+- Built-in Link Doctor — test the path before you tunnel: ping, packet loss, jitter, MTU, throughput, measured per direction (filtering is often one-way; a normal test will fool you)
 - Gradual speed warm-up — doesn't go full speed on day one; ramps up slowly so the server doesn't end up under the microscope
 
 ### Architecture
@@ -50,7 +51,7 @@ A simple menu comes up. Steps:
 4. On the exit server (abroad): option 4 — connect to IRAN_IP:9000, forward to 127.0.0.1:443, same key
 5. Check with option 6 — both services should show active (running)
 
-Firewall: on the entry server open the control port and the exposed port, e.g. `ufw allow 9000` and `ufw allow 443`. The exit server needs no inbound ports.
+Firewall: on the entry server open the control port and the exposed port, e.g. ufw allow 9000 and ufw allow 443. The exit server needs no inbound ports.
 
 ### Manual
 
@@ -73,7 +74,7 @@ No UDP/QUIC yet, and no real port hopping. Found a bug? Open an issue.
 
 ## فارسی
 
-یه تانل معکوس TCP سبک که با Go خالص نوشته شده و هیچ وابستگی خارجی نداره.
+KiyaTun یه تانل معکوس TCP سبکه که با Go خالص نوشته شده و هیچ وابستگی خارجی نداره.
 برای شبکه‌های محدودشده طراحی شده (مخصوصاً ایران <-> خارج) جایی که سرور خروجی نباید هیچ پورت ورودی باز داشته باشه.
 
 وضعیت: در حال آپدیت و توسعه.
@@ -81,10 +82,13 @@ No UDP/QUIC yet, and no real port hopping. Found a bug? Open an issue.
 ### ویژگی‌ها
 
 - تانل معکوس — سمت خروجی خودش وصل می‌شه، هیچ پورت ورودی لازم نداره
-- قبل از اینکه اصلاً تانل بزنی، می‌تونی لینک بین دو سرور رو بسنجی — پینگ، پکت‌لاس، jitter، MTU، همه جدا برای هر جهت (چون خیلی وقتا فیلترینگ یک‌طرفه‌ست و تست عادی گولت می‌زنه)
-- هیچ اثر انگشتی رو سیم نمی‌ذاره. کانکشن با کلید غلط = هیچ جوابی نمی‌گیری، عین یه پورت خاموش
+- رمزنگاری AES-256-GCM با رکوردهای سایز ثابت
+- هیچ اثر انگشتی رو سیم نمی‌ذاره — بدون شماره‌ی جادویی، بدون بنر، بدون طول پکت به‌صورت پلتکست. کانکشن با کلید غلط = هیچ جوابی نمی‌گیری، عین یه پورت خاموش
+- مالتی‌پلکسینگ — چند استریم روی یک کانکشن کنترل
+- ترنسپورت‌ها: raw / tls / ws / wss
 - از پشت CDN هم رد می‌شه (آروان، کلودفلر، هرچی) — با WebSocket، همون چیزی که CDNها خودشون پروکسی می‌کنن
 - می‌تونی روش یه گواهی واقعی SSL بذاری تا از نظر هر چیزی که ترافیک رو چک می‌کنه، عین یه HTTPS معمولی باشه
+- تست لینک داخلی — قبل از اینکه اصلاً تانل بزنی، می‌تونی لینک بین دو سرور رو بسنجی: پینگ، پکت‌لاس، jitter، MTU و سرعت، جدا برای هر جهت (چون خیلی وقتا فیلترینگ یک‌طرفه‌ست و تست عادی گولت می‌زنه)
 - سرعتو یهو فول نمی‌ده از روز اول؛ آروم آروم بالا می‌بره تا سرور تازه زیر ذره‌بین نره
 
 ### معماری
@@ -102,7 +106,7 @@ No UDP/QUIC yet, and no real port hopping. Found a bug? Open an issue.
 bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
 ```
 
-یه منوی ساده میاد بالا. مراحل:
+یه منوی ساده میاد بالا، عدد بزن، تموم. مراحل:
 
 ۱. روی هر دو سرور: گزینه ۱ (نصب tunx) و بعد گزینه ۲ (ساخت کلید) — همین یه کلید باید روی هر دو سرور یکسان باشه
 ۲. اختیاری ولی توصیه می‌شه: تست لینک — روی یکی از سرورها گزینه ۵ و انتخاب ۱ (agent)، بعد از سرور دیگه گزینه ۵ و انتخاب ۲ (link) با آدرس سرور اول
