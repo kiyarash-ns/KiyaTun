@@ -1,0 +1,18 @@
+[Unit]
+Description=tunx tunnel client (exit side)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/tunx/client.env
+ExecStart=/usr/local/bin/tunx client -connect ${TUNX_CONNECT} -to ${TUNX_TO:-127.0.0.1:443} -key ${TUNX_KEY} -transport ${TUNX_TRANSPORT:-raw}
+Restart=on-failure
+RestartSec=2
+User=tunx
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -22,20 +22,34 @@ type tunnelServer struct {
 	limiter *rampLimiter
 }
 
-func runTunnelServer(listen, expose, key string, warmup time.Duration, warmMbps, targetMbps float64, transport, certFile, keyFile string) error {
+func runTunnelServer(listen, expose, key string, warmup time.Duration, warmMbps, targetMbps float64, transport, certFile, keyFile string, hop bool, hopBase, hopCount int, hopWindow time.Duration) error {
 	ts := &tunnelServer{key: key}
 	if targetMbps > 0 {
 		ts.limiter = newRampLimiter(warmMbps, targetMbps, warmup)
 	}
 
-	ln, err := listenControl(listen, transport, certFile, keyFile)
-	if err != nil {
-		return fmt.Errorf("control listen %s: %w", listen, err)
+	var acceptor interface {
+		Accept() (net.Conn, error)
 	}
-	log.Printf("control: listening on %s (%s) for clients", listen, transportLabel(transport))
+	if hop {
+		host, _, err := net.SplitHostPort(listen)
+		if err != nil {
+			host = ""
+		}
+		hl := newHopListener(host, key, transport, certFile, keyFile, hopBase, hopCount, hopWindow)
+		acceptor = hl
+		log.Printf("control: port hopping enabled (base=%d count=%d window=%s)", hopBase, hopCount, hopWindow)
+	} else {
+		ln, err := listenControl(listen, transport, certFile, keyFile, key)
+		if err != nil {
+			return fmt.Errorf("control listen %s: %w", listen, err)
+		}
+		acceptor = ln
+		log.Printf("control: listening on %s (%s) for clients", listen, transportLabel(transport))
+	}
 	go func() {
 		for {
-			c, err := ln.Accept()
+			c, err := acceptor.Accept()
 			if err != nil {
 				time.Sleep(50 * time.Millisecond)
 				continue
@@ -127,9 +141,19 @@ func (ts *tunnelServer) handleUser(uc net.Conn) {
 	relay(uc, st, ts.limiter)
 }
 
-func runTunnelClient(connect, to, key string, retry time.Duration, transport, sni string, insecureTLS bool, wsPath, wsHost string) error {
+func runTunnelClient(connect, to, key string, retry time.Duration, transport, sni string, insecureTLS bool, wsPath, wsHost string, hop bool, hopBase, hopCount int, hopWindow time.Duration) error {
 	for {
-		if err := oneClientSession(connect, to, key, transport, sni, insecureTLS, wsPath, wsHost); err != nil {
+		dialAddr := connect
+		if hop {
+			a, err := resolveHopAddr(connect, key, hopBase, hopCount, hopWindow, 0)
+			if err != nil {
+				log.Printf("hop address resolve failed: %v", err)
+				time.Sleep(retry)
+				continue
+			}
+			dialAddr = a
+		}
+		if err := oneClientSession(dialAddr, to, key, transport, sni, insecureTLS, wsPath, wsHost); err != nil {
 			log.Printf("session ended: %v (retrying in %s)", err, retry)
 		}
 		time.Sleep(retry)
@@ -137,7 +161,7 @@ func runTunnelClient(connect, to, key string, retry time.Duration, transport, sn
 }
 
 func oneClientSession(connect, to, key, transport, sni string, insecureTLS bool, wsPath, wsHost string) error {
-	c, err := dialControl(connect, transport, sni, insecureTLS, 8*time.Second, wsPath, wsHost)
+	c, err := dialControl(connect, transport, sni, insecureTLS, 8*time.Second, wsPath, wsHost, key)
 	if err != nil {
 		return err
 	}
@@ -198,7 +222,7 @@ func relay(a net.Conn, b io.ReadWriteCloser, limiter *rampLimiter) {
 
 func transportLabel(t string) string {
 	switch t {
-	case "tls", "ws", "wss":
+	case "tls", "ws", "wss", "udp":
 		return t
 	}
 	return "raw"

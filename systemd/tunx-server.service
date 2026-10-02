@@ -1,0 +1,20 @@
+[Unit]
+Description=tunx tunnel server (entry side)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Edit the flags below, or set them in /etc/tunx/server.env instead.
+EnvironmentFile=-/etc/tunx/server.env
+ExecStart=/usr/local/bin/tunx server -l ${TUNX_LISTEN:-:9000} -expose ${TUNX_EXPOSE:-:443} -key ${TUNX_KEY} -transport ${TUNX_TRANSPORT:-raw}
+Restart=on-failure
+RestartSec=2
+User=tunx
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

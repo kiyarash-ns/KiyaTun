@@ -33,7 +33,12 @@ ordinary HTTPS to a passive observer. Must match on both sides.
 -transport ws/wss additionally speaks WebSocket, so the connection can pass
 through an HTTP(S)-only CDN (Arvan, Cloudflare, etc.) that doesn't proxy raw
 TCP. Point the CDN's origin at the server's real IP, point -connect at the
-CDN's domain, and set -sni / -ws-host to that domain.`)
+CDN's domain, and set -sni / -ws-host to that domain.
+-transport udp uses a custom reliable transport over UDP (not QUIC) for
+paths where TCP specifically is throttled but UDP is not.
+-hop enables port hopping: both sides derive the active port from
+HMAC(key, time window) independently, no coordination traffic needed.
+-hop-base/-hop-count/-hop-window must match on both sides.`)
 }
 
 func main() {
@@ -88,15 +93,19 @@ func main() {
 		warmup := fs.Duration("warmup", 10*time.Minute, "duration to ramp up to full speed")
 		warmMbps := fs.Float64("warm-mbps", 2, "starting rate during warm-up, in Mbit/s")
 		targetMbps := fs.Float64("target-mbps", 0, "target rate after warm-up, in Mbit/s (0 = no limit, no warm-up)")
-		transport := fs.String("transport", "raw", "control transport: raw, tls, ws or wss")
+		transport := fs.String("transport", "raw", "control transport: raw, tls, ws, wss or udp")
 		cert := fs.String("cert", "", "TLS certificate file (transport=tls/wss; self-signed if omitted)")
 		keyFile := fs.String("key-file", "", "TLS private key file (transport=tls/wss)")
+		hop := fs.Bool("hop", false, "enable port hopping: derive the control port from the key and time instead of -l's port")
+		hopBase := fs.Int("hop-base", 20000, "lowest port in the hopping range")
+		hopCount := fs.Int("hop-count", 200, "number of ports in the hopping range")
+		hopWindow := fs.Duration("hop-window", 60*time.Second, "how often the active port rotates (must match the client)")
 		fs.Parse(os.Args[2:])
 		if *expose == "" || *key == "" {
 			fmt.Println("need -expose and -key")
 			os.Exit(2)
 		}
-		if err := runTunnelServer(*listen, *expose, *key, *warmup, *warmMbps, *targetMbps, *transport, *cert, *keyFile); err != nil {
+		if err := runTunnelServer(*listen, *expose, *key, *warmup, *warmMbps, *targetMbps, *transport, *cert, *keyFile, *hop, *hopBase, *hopCount, *hopWindow); err != nil {
 			fmt.Println("server:", err)
 			os.Exit(1)
 		}
@@ -107,17 +116,21 @@ func main() {
 		to := fs.String("to", "", "local address to forward accepted connections to, e.g. 127.0.0.1:443")
 		key := fs.String("key", os.Getenv("TUNX_KEY"), "shared key")
 		retry := fs.Duration("retry", 3*time.Second, "reconnect delay if the control connection drops")
-		transport := fs.String("transport", "raw", "control transport: raw, tls, ws or wss (must match the server)")
+		transport := fs.String("transport", "raw", "control transport: raw, tls, ws, wss or udp (must match the server)")
 		sni := fs.String("sni", "", "TLS server name to send (transport=tls/wss); the CDN-fronted domain, if using one")
 		insecure := fs.Bool("insecure-tls", false, "skip TLS certificate verification (only for a self-signed server cert)")
 		wsPath := fs.String("ws-path", "/", "HTTP path for the WebSocket upgrade (transport=ws/wss)")
 		wsHost := fs.String("ws-host", "", "Host header for the WebSocket upgrade (transport=ws/wss); defaults to -sni, then to -connect")
+		hop := fs.Bool("hop", false, "enable port hopping: derive the control port from the key and time instead of -connect's port")
+		hopBase := fs.Int("hop-base", 20000, "lowest port in the hopping range (must match the server)")
+		hopCount := fs.Int("hop-count", 200, "number of ports in the hopping range (must match the server)")
+		hopWindow := fs.Duration("hop-window", 60*time.Second, "how often the active port rotates (must match the server)")
 		fs.Parse(os.Args[2:])
 		if *connect == "" || *to == "" || *key == "" {
 			fmt.Println("need -connect, -to and -key")
 			os.Exit(2)
 		}
-		if err := runTunnelClient(*connect, *to, *key, *retry, *transport, *sni, *insecure, *wsPath, *wsHost); err != nil {
+		if err := runTunnelClient(*connect, *to, *key, *retry, *transport, *sni, *insecure, *wsPath, *wsHost, *hop, *hopBase, *hopCount, *hopWindow); err != nil {
 			fmt.Println("client:", err)
 			os.Exit(1)
 		}

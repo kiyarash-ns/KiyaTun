@@ -1,138 +1,218 @@
+<div align="center">
+
 # KiyaTun
 
-KiyaTun — a lightweight reverse TCP tunnel in pure Go, zero external dependencies.
+**یه تانل TCP معکوس، سریع و ضدشناسایی — نوشته‌شده با Go، بدون هیچ وابستگی بیرونی**
+**A fast, hard-to-fingerprint reverse TCP tunnel — pure Go, zero external dependencies**
 
-Built for restricted networks (especially Iran <-> abroad) where the exit server must not expose any inbound ports.
+![Go](https://img.shields.io/badge/Go-1.21%2B-00ADD8?logo=go&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Transports](https://img.shields.io/badge/transports-raw%20%7C%20tls%20%7C%20ws%20%7C%20wss%20%7C%20udp-blue)
 
-Status: under active update and development — در حال آپدیت و توسعه.
+[فارسی](#--فارسی) | [English](#--english)
 
-| | |
-|---|---|
-| Author | kiyarash-ns |
-| Language | Go — zero external dependencies |
-| Encryption | AES-256-GCM |
-| Transports | raw / tls / ws / wss |
-| License | MIT |
-
-## English
-
-### Features
-
-- Reverse tunnel architecture — the abroad side dials out; no inbound ports needed there
-- AES-256-GCM encryption with fixed-size records
-- No fingerprint on the wire — no magic numbers, banners, or plaintext length fields. A connection with a wrong key gets no response at all, just like a dead port (anti active-probing)
-- Multiplexing — multiple streams over one control connection
-- Transports: raw / tls / ws / wss
-- CDN support — WebSocket transport passes through Arvan, Cloudflare, etc. — exactly what CDNs proxy themselves
-- Real SSL certificate support — to anything inspecting the traffic, it looks like an ordinary HTTPS site
-- Built-in Link Doctor — test the path before you tunnel: ping, packet loss, jitter, MTU, throughput, measured per direction (filtering is often one-way; a normal test will fool you)
-- Gradual speed warm-up — doesn't go full speed on day one; ramps up slowly so the server doesn't end up under the microscope
-
-### Architecture
-
-| Role | Location | Behavior |
-|------|----------|----------|
-| Server (Entry) | Iran | Listens on control port + exposed ports |
-| Client (Exit) | Abroad | Dials out to Iran, forwards traffic locally |
-
-The abroad server needs no open inbound ports.
-
-### Install
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
-```
-
-A simple menu comes up. Steps:
-
-1. On both servers: option 1 (install tunx), then option 2 (generate key) — the same key must be used on both sides
-2. Optional, recommended: link test — on one server run option 5, choice 1 (agent), then from the other server option 5, choice 2 (link) with the peer address
-3. On the entry server (Iran): option 3 — control port, exposed port, transport, key
-4. On the exit server (abroad): option 4 — connect to IRAN_IP:9000, forward to 127.0.0.1:443, same key
-5. Check with option 6 — both services should show active (running)
-
-Firewall: on the entry server open the control port and the exposed port, e.g. ufw allow 9000 and ufw allow 443. The exit server needs no inbound ports.
-
-### Manual
-
-```bash
-./tunx keygen
-./tunx agent -l :9000 -key KEY          # on both servers, for link testing
-./tunx link -peer IP:9000 -key KEY      # test from each side separately
-
-./tunx server -l :9000 -expose :443 -key KEY              # entry server (e.g. Iran)
-./tunx client -connect IP:9000 -to 127.0.0.1:443 -key KEY # exit side
-```
-
-All flags: ./tunx --help
-
-### Not finished yet
-
-No UDP/QUIC yet, and no real port hopping. Found a bug? Open an issue.
+</div>
 
 ---
 
-## فارسی
+## 🇮🇷 فارسی
 
-KiyaTun یه تانل معکوس TCP سبکه که با Go خالص نوشته شده و هیچ وابستگی خارجی نداره.
-برای شبکه‌های محدودشده طراحی شده (مخصوصاً ایران <-> خارج) جایی که سرور خروجی نباید هیچ پورت ورودی باز داشته باشه.
-
-وضعیت: در حال آپدیت و توسعه.
+### فهرست
+- [ویژگی‌ها](#ویژگیها)
+- [رمزنگاری و امنیت](#رمزنگاری-و-امنیت)
+- [نصب سریع](#نصب-سریع)
+- [نصب دستی](#نصب-دستی)
+- [پشت CDN (آروان و مشابه)](#پشت-cdn-آروان-و-مشابه)
+- [دامنه کار نمی‌کنه؟](#دامنه-کار-نمیکنه)
+- [همه‌ی فلگ‌ها](#همهی-فلگها)
+- [مدیریت سرویس](#مدیریت-سرویس)
+- [آپدیت و حذف](#آپدیت-و-حذف)
+- [رفع اشکال](#رفع-اشکال)
 
 ### ویژگی‌ها
 
-- تانل معکوس — سمت خروجی خودش وصل می‌شه، هیچ پورت ورودی لازم نداره
-- رمزنگاری AES-256-GCM با رکوردهای سایز ثابت
-- هیچ اثر انگشتی رو سیم نمی‌ذاره — بدون شماره‌ی جادویی، بدون بنر، بدون طول پکت به‌صورت پلتکست. کانکشن با کلید غلط = هیچ جوابی نمی‌گیری، عین یه پورت خاموش
-- مالتی‌پلکسینگ — چند استریم روی یک کانکشن کنترل
-- ترنسپورت‌ها: raw / tls / ws / wss
-- از پشت CDN هم رد می‌شه (آروان، کلودفلر، هرچی) — با WebSocket، همون چیزی که CDNها خودشون پروکسی می‌کنن
-- می‌تونی روش یه گواهی واقعی SSL بذاری تا از نظر هر چیزی که ترافیک رو چک می‌کنه، عین یه HTTPS معمولی باشه
-- تست لینک داخلی — قبل از اینکه اصلاً تانل بزنی، می‌تونی لینک بین دو سرور رو بسنجی: پینگ، پکت‌لاس، jitter، MTU و سرعت، جدا برای هر جهت (چون خیلی وقتا فیلترینگ یک‌طرفه‌ست و تست عادی گولت می‌زنه)
-- سرعتو یهو فول نمی‌ده از روز اول؛ آروم آروم بالا می‌بره تا سرور تازه زیر ذره‌بین نره
+| ویژگی | توضیح |
+|---|---|
+| 🩺 **Link Doctor** | قبل از زدن تونل، لاس/پینگ/jitter/MTU رو جدا برای هر جهت می‌سنجه و ترنسپورت پیشنهادی می‌ده |
+| 🕵️ **بدون اثر انگشت** | اتصال بدون کلید درست = هیچ پاسخی، عین پورت خاموش |
+| 🌐 **پشت CDN** | با `ws`/`wss` از پشت آروان/کلودفلر و هر CDN دیگه رد می‌شه |
+| 🔀 **چند ترنسپورت** | `raw`، `tls`، `ws`، `wss`، `udp` — بسته به شرایط لینک عوض کن |
+| 🚪 **پورت‌هاپینگ واقعی** | پورت از روی کلید + ساعت محاسبه می‌شه، بدون پیام هماهنگی جدا |
+| 🐢→🚀 **Warm-up** | سرعت رو تدریجی بالا می‌بره، نه یهو فول از روز اول |
+| 📦 **بدون وابستگی** | فقط `go build .`، هیچ کتابخونه‌ی خارجی لازم نیست |
 
-### معماری
+### رمزنگاری و امنیت
 
-| نقش | مکان | رفتار |
-|------|----------|----------|
-| سرور (ورودی) | ایران | روی پورت کنترل و پورت‌های اکسپوز گوش می‌ده |
-| کلاینت (خروجی) | خارج | به ایران وصل می‌شه و ترافیک رو محلی فوروارد می‌کنه |
+| لایه | روش |
+|---|---|
+| رمزنگاری ترافیک | AES-256-GCM |
+| اشتقاق کلید | HMAC-SHA256، برچسب جدا برای هر جهت (`c2s`/`s2c`) و هر زیرسیستم (`udpconn`, `hop`) |
+| فرمت روی سیم (raw) | رکوردهای رمزشده‌ی هم‌اندازه، بدون magic byte، بدون طول plaintext |
+| رفتار با کلید غلط | سکوت کامل — نه بنر، نه خطا، عین پورت بسته |
+| TLS (اختیاری) | TLS 1.3 واقعی (`crypto/tls`)، گواهی واقعی یا self-signed |
+| WebSocket (اختیاری) | RFC 6455 دست‌نویس، برای عبور از CDN |
+| UDP (اختیاری) | ARQ رمزشده‌ی خودمون — **نه QUIC واقعی**، صداقتاً |
+| پورت‌هاپینگ | `HMAC-SHA256(کلید, بازه‌ی زمانی)` — سمت گیرنده ۳ پورت (قبل/فعلی/بعد) باز نگه می‌داره |
 
-سمت خارج هیچ پورت ورودی بازی لازم نداره.
-
-### نصب
-
+### نصب سریع
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/<username>/<repo>/main/scripts/install.sh)
+```
+منوی ساده میاد بالا: روی سرور ایران **Quick setup — server**، روی سرور
+خارج **Quick setup — client**. کلید رو کپی کن، تموم.
+
+### نصب دستی
+```bash
+git clone https://github.com/<username>/<repo>.git && cd <repo>
+go build -o tunx .
+./tunx keygen                                              # یه بار، یادداشت کن
+
+# ایران:
+./tunx server -l :9000 -expose :443 -key THE_KEY
+
+# خارج:
+./tunx client -connect <IP_IRAN>:9000 -to 127.0.0.1:8080 -key THE_KEY
+```
+تست: `curl http://<IP_IRAN>:443/`
+
+### پشت CDN (آروان و مشابه)
+```bash
+# ایران:
+./tunx server -l :9443 -expose :443 -key THE_KEY -transport ws
+
+# خارج:
+./tunx client -connect your-domain.com:443 -to 127.0.0.1:8080 -key THE_KEY -transport ws -sni your-domain.com
+```
+تو پنل CDN: DNS → IP ایران، Proxy **فعال**، origin port = `9443`،
+**WebSocket فعال**، SSL mode = Flexible (برای `ws`) یا Full (برای `wss`).
+
+### دامنه کار نمی‌کنه؟
+
+| حالت | مشکل معمول |
+|---|---|
+| دامنه پشت CDN (ابر نارنجی) + پروتکل `tcp` خام | CDN فقط HTTP/WS می‌فهمه؛ باید `type=ws` بشه (هم تو KiyaTun هم تو هر پروتکل دیگه مثل VLESS) |
+| دامنه پشت CDN + WebSocket خاموش تو پنل | باید تو پنل CDN جدا فعالش کنی |
+| دامنه DNS-only (ابر خاکستری) و بازم کار نمی‌کنه | `nslookup domain` و `curl -v http://domain:PORT/` بزن، ببین IP درسته و پورت باز شده |
+| گواهی TLS خطا می‌ده | دامنه گواهی نداره؛ یا self-signed با `-insecure-tls` تست کن، یا certbot بزن |
+
+مثال واقعی: `vless://...@domain.com:443?type=tcp` وصل نمی‌شه ولی
+`vless://...@IP:443?type=tcp` وصل می‌شه → یعنی دقیقاً حالت اول همین جدول.
+
+### همه‌ی فلگ‌ها
+
+```
+tunx keygen
+tunx agent  -l :PORT -key KEY
+tunx link   -peer IP:PORT -key KEY [-n -i -size -speed -nomtu]
+
+tunx server -l :PORT -expose :PORT[,...] -key KEY
+            [-transport raw|tls|ws|wss|udp]
+            [-cert FILE -key-file FILE]
+            [-warmup DUR -warm-mbps N -target-mbps N]
+            [-hop -hop-base N -hop-count N -hop-window DUR]
+
+tunx client -connect HOST:PORT -to HOST:PORT -key KEY
+            [-transport raw|tls|ws|wss|udp]
+            [-sni DOMAIN -insecure-tls]
+            [-ws-path PATH -ws-host HOST]
+            [-retry DUR]
+            [-hop -hop-base N -hop-count N -hop-window DUR]
 ```
 
-یه منوی ساده میاد بالا، عدد بزن، تموم. مراحل:
-
-۱. روی هر دو سرور: گزینه ۱ (نصب tunx) و بعد گزینه ۲ (ساخت کلید) — همین یه کلید باید روی هر دو سرور یکسان باشه
-۲. اختیاری ولی توصیه می‌شه: تست لینک — روی یکی از سرورها گزینه ۵ و انتخاب ۱ (agent)، بعد از سرور دیگه گزینه ۵ و انتخاب ۲ (link) با آدرس سرور اول
-۳. روی سرور ورودی (ایران): گزینه ۳ — پورت کنترل، پورت اکسپوز، ترنسپورت و کلید رو بده
-۴. روی سرور خروجی (خارج): گزینه ۴ — به IP_ایران:9000 وصل شو، فوروارد به 127.0.0.1:443، همون کلید
-۵. با گزینه ۶ وضعیت رو چک کن — هر دو سرویس باید active (running) باشن
-
-فایروال: روی سرور ایران پورت کنترل و پورت اکسپوز رو باز کن، مثلاً ufw allow 9000 و ufw allow 443. سرور خارج هیچ پورت ورودی لازم نداره.
-
-### دستی (اگه خواستی خودت کنترل کنی)
-
+### مدیریت سرویس
 ```bash
+systemctl status tunx-server       # یا tunx-client
+journalctl -u tunx-server -f
+```
+
+### آپدیت و حذف
+```bash
+# آپدیت:
+systemctl stop tunx-server
+# باینری جدید رو جایگزین /usr/local/bin/tunx کن
+systemctl start tunx-server
+
+# حذف کامل:
+systemctl disable --now tunx-server tunx-client
+rm -f /etc/systemd/system/tunx-*.service
+rm -rf /etc/tunx /usr/local/bin/tunx
+systemctl daemon-reload
+```
+
+### رفع اشکال
+
+| علامت | یعنی چی |
+|---|---|
+| `bad hello` / `handshake failed` | کلید سرور و کلاینت یکی نیست |
+| `connection refused` | پورت اشتباه یا سرویس بالا نیست |
+| `timeout` | فایروال بسته، یا IP/دامنه غلط |
+| سرعت کمه اول کار | warm-up فعاله؛ `-target-mbps 0` یا صبر کن |
+| پشت CDN رد نمی‌شه | WebSocket خاموشه، یا پروتکل داخلی هنوز `tcp` خامه |
+| `-hop` وصل نمی‌شه | ساعت دو سرور sync نیست یا hop-base/count/window فرق دارن |
+
+---
+
+## 🇬🇧 English
+
+### What it is
+KiyaTun is a reverse TCP tunnel in pure Go. The box with the stable public
+IP (e.g. Iran) runs `server`; the box with the real service (e.g. abroad)
+runs `client` and dials **out** to the server — so the exit box needs no
+open inbound port. End users connect to the server's exposed port; traffic
+rides the tunnel to the client, which forwards it to the real local service.
+
+### Features
+- **Link Doctor** — per-direction loss/RTT/jitter/MTU test before you commit to a transport
+- **No wire fingerprint** — wrong key = zero reply, like a closed port
+- **CDN-friendly** — `ws`/`wss` transports pass through Arvan/Cloudflare/etc.
+- **Multiple transports** — `raw`, `tls`, `ws`, `wss`, `udp`
+- **Real port hopping** — active port derived from `HMAC(key, time window)`, no coordination traffic
+- **Warm-up ramp** — avoids a sudden full-speed burst from a fresh IP
+- **Zero dependencies** — `go build .` and you're done
+
+### Security
+AES-256-GCM for all traffic, HMAC-SHA256 key derivation (separate labels
+per direction and subsystem), optional real TLS 1.3, hand-rolled RFC 6455
+WebSocket for CDN passthrough, and a custom encrypted ARQ transport over UDP
+(**not real QUIC** — no congestion control like BBR, said plainly rather
+than oversold).
+
+### Quick install
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/<username>/<repo>/main/scripts/install.sh)
+```
+
+### Manual
+```bash
+git clone https://github.com/<username>/<repo>.git && cd <repo>
+go build -o tunx .
 ./tunx keygen
-./tunx agent -l :9000 -key KEY          # رو هر دو سرور، برای تست لینک
-./tunx link -peer IP:9000 -key KEY      # از هر طرف جدا تست کن
 
-./tunx server -l :9000 -expose :443 -key KEY              # سرور ورودی (مثلاً ایران)
-./tunx client -connect IP:9000 -to 127.0.0.1:443 -key KEY # سمت خروجی
+# entry side:
+./tunx server -l :9000 -expose :443 -key THE_KEY
+# exit side:
+./tunx client -connect <ENTRY_IP>:9000 -to 127.0.0.1:8080 -key THE_KEY
 ```
 
-همه‌ی فلگ‌ها: ./tunx --help
+### Behind a CDN
+Use `-transport ws` (CDN terminates TLS) or `-transport wss` (TLS all the
+way to origin). In the CDN panel: enable proxy, enable WebSocket, set the
+origin port to match `-l`, and SSL mode to Flexible (`ws`) or Full (`wss`).
+Any protocol tunneled *through* KiyaTun (e.g. a VLESS config on top) must
+also be set to `type=ws` if its domain is CDN-proxied — raw `tcp` mode
+can't pass through an HTTP(S)-only CDN edge regardless of what's carrying it.
 
-### هنوز کامل نیست
+### Flags
+See the Persian section above — the flag reference is identical, just read
+the table there.
 
-UDP/QUIC هنوز نداره، پورت‌هاپینگ واقعی هم نه. اگه باگی چیزی دیدی issue بزن.
+### Known limitations
+- `udp` transport has no real congestion control (fixed-window ARQ, not QUIC/BBR)
+- `-hop` needs roughly synced clocks (NTP) between both sides
+- No automatic transport switching yet — Link Doctor tells you, you pick `-transport` by hand
+- No claim of working against any specific country's filtering at any specific time
 
-## License
+---
 
-MIT
+<div align="center">by Kiyarash</div>

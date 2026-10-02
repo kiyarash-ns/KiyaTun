@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func dialControl(addr, transport, sni string, insecure bool, timeout time.Duration, wsPath, wsHost string) (net.Conn, error) {
+func dialControl(addr, transport, sni string, insecure bool, timeout time.Duration, wsPath, wsHost, key string) (net.Conn, error) {
 	switch transport {
 	case "", "raw":
 		return net.DialTimeout("tcp", addr, timeout)
@@ -41,12 +41,19 @@ func dialControl(addr, transport, sni string, insecure bool, timeout time.Durati
 		}
 		cfg := &tls.Config{ServerName: sni, InsecureSkipVerify: insecure, MinVersion: tls.VersionTLS12}
 		return dialWS(addr, wsPath, host, cfg, timeout)
+	case "udp":
+		return dialUDPConn(addr, key, timeout)
 	default:
-		return nil, fmt.Errorf("unknown transport %q (use raw, tls, ws or wss)", transport)
+		return nil, fmt.Errorf("unknown transport %q (use raw, tls, ws, wss or udp)", transport)
 	}
 }
 
-func listenControl(addr, transport, certFile, keyFile string) (net.Listener, error) {
+func listenControl(addr, transport, certFile, keyFile, key string) (net.Listener, error) {
+	switch transport {
+	case "udp":
+		return listenUDPConn(addr, key)
+	}
+
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -74,7 +81,7 @@ func listenControl(addr, transport, certFile, keyFile string) (net.Listener, err
 		return &wsListener{Listener: tls.NewListener(ln, cfg)}, nil
 	default:
 		ln.Close()
-		return nil, fmt.Errorf("unknown transport %q (use raw, tls, ws or wss)", transport)
+		return nil, fmt.Errorf("unknown transport %q (use raw, tls, ws, wss or udp)", transport)
 	}
 }
 
