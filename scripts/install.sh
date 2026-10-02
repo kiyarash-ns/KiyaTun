@@ -28,7 +28,7 @@ need_root() {
 logo() {
   echo -e "${BLU}  _  ___               _____         ${YEL}  _____           ${NC}"
   echo -e "${BLU} | |/ (_)_   _  __ _  |_   _|   _ _ __${YEL} |_   _|   _ _ __  ${NC}"
-  echo -e "${BLU} | ' /| | | | |/ _\` |   | || | | | '_ \\${YEL} | || | | | '_ \\ ${NC}"
+  echo -e "${BLU} | ' /| | | | |/ _\` |   | || | | | '_ \\\\${YEL} | || | | | '_ \\ ${NC}"
   echo -e "${BLU} | . \\| | |_| | (_| |   | || |_| | | | ${YEL}| || |_| | | | |${NC}"
   echo -e "${BLU} |_|\\_\\_|\\__, |\\__,_|   |_| \\__,_|_| |_|${YEL}|_| \\__,_|_| |_|${NC}"
   echo -e "${BLU}         |___/${NC}  ${YEL}by Kiyarash${NC}"
@@ -39,27 +39,29 @@ ensure_binary() {
   if [ -x "$BIN_PATH" ]; then
     return
   fi
-  echo "tunx binary not found at $BIN_PATH"
-  echo "  1) build from local source (needs Go)"
-  echo "  2) download from this repo's GitHub release"
-  read -rp "choice [1/2]: " c
-  if [ "$c" = "1" ]; then
-    if ! command -v go >/dev/null 2>&1; then
-      echo -e "${RED}Go is not installed. Install Go first, or choose option 2.${NC}"
-      exit 1
-    fi
-    ( cd "$(dirname "$0")/.." && go build -o "$BIN_PATH" . )
-  else
-    local arch
-    arch=$(uname -m)
-    case "$arch" in
-      x86_64) arch=amd64 ;;
-      aarch64) arch=arm64 ;;
-    esac
-    echo "Downloading latest release for linux/$arch from $REPO_URL ..."
-    curl -fsSL "$REPO_URL/releases/latest/download/tunx-linux-$arch" -o "$BIN_PATH" \
-      || { echo -e "${RED}Download failed. Edit REPO_URL in this script, or build from source.${NC}"; exit 1; }
+  local arch
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64) arch=amd64 ;;
+    aarch64) arch=arm64 ;;
+  esac
+  echo "tunx not found -- trying release binary for linux/$arch ..."
+  if curl -fsSL "$REPO_URL/releases/latest/download/tunx-linux-$arch" -o "$BIN_PATH"; then
+    chmod +x "$BIN_PATH"
+    return
   fi
+  rm -f "$BIN_PATH"
+  echo "No release binary -- building from source."
+  command -v git >/dev/null 2>&1 || { echo -e "${RED}git is required. Install it and re-run.${NC}"; exit 1; }
+  command -v go >/dev/null 2>&1 || { echo -e "${RED}Go is required to build. Install Go and re-run.${NC}"; exit 1; }
+  local tmp
+  tmp=$(mktemp -d)
+  if ! git clone --depth 1 "$REPO_URL.git" "$tmp" || ! ( cd "$tmp" && go build -o "$BIN_PATH" . ); then
+    rm -rf "$tmp"
+    echo -e "${RED}Build failed.${NC}"
+    exit 1
+  fi
+  rm -rf "$tmp"
   chmod +x "$BIN_PATH"
 }
 
@@ -162,7 +164,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=-/etc/tunx/server.env
-ExecStart=/usr/local/bin/tunx server -l ${TUNX_LISTEN} -expose ${TUNX_EXPOSE} -key ${TUNX_KEY} -transport ${TUNX_TRANSPORT} -cert ${TUNX_CERT} -key-file ${TUNX_KEYFILE} ${TUNX_HOP_FLAGS}
+ExecStart=/usr/local/bin/tunx server -l ${TUNX_LISTEN} -expose ${TUNX_EXPOSE} -key ${TUNX_KEY} -transport ${TUNX_TRANSPORT} -cert ${TUNX_CERT} -key-file ${TUNX_KEYFILE} $TUNX_HOP_FLAGS
 Restart=on-failure
 RestartSec=2
 User=tunx
@@ -185,12 +187,15 @@ quick_server() {
   echo
   read -rp "Control port [9000]: " cport; cport=${cport:-9000}
   read -rp "Exposed port for end users [443]: " eport; eport=${eport:-443}
-  key=$("$BIN_PATH" keygen)
-  echo
-  echo -e "${GRN}Shared key -- copy this, you will need it on the abroad server:${NC}"
-  echo -e "${GRN}$key${NC}"
-  echo
-  read -rp "Press Enter once you've saved it: " _
+  read -rp "Shared key (press Enter to generate a new one): " key
+  if [ -z "$key" ]; then
+    key=$("$BIN_PATH" keygen)
+    echo
+    echo -e "${GRN}Shared key -- copy this, you will need it on the abroad server:${NC}"
+    echo -e "${GRN}$key${NC}"
+    echo
+    read -rp "Press Enter once you've saved it: " _
+  fi
 
   cat > "$SERVER_ENV" <<EOF
 TUNX_LISTEN=:$cport
@@ -280,7 +285,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=-/etc/tunx/client.env
-ExecStart=/usr/local/bin/tunx client -connect ${TUNX_CONNECT} -to ${TUNX_TO} -key ${TUNX_KEY} -transport ${TUNX_TRANSPORT} -sni ${TUNX_SNI} ${TUNX_HOP_FLAGS}
+ExecStart=/usr/local/bin/tunx client -connect ${TUNX_CONNECT} -to ${TUNX_TO} -key ${TUNX_KEY} -transport ${TUNX_TRANSPORT} -sni ${TUNX_SNI} $TUNX_HOP_FLAGS
 Restart=on-failure
 RestartSec=2
 User=tunx
@@ -362,6 +367,24 @@ manage_ports() {
   echo -e "${GRN}Updated and restarted.${NC}"
 }
 
+generate_key() {
+  ensure_binary
+  if [ -f "$SERVER_ENV" ] && grep -q '^TUNX_KEY=' "$SERVER_ENV"; then
+    echo -e "${YEL}A server is already installed here. Its current key:${NC}"
+    grep '^TUNX_KEY=' "$SERVER_ENV" | cut -d= -f2-
+    read -rp "Generate a NEW key instead? (does not change the installed server) [y/N]: " c
+    [[ "${c:-N}" =~ ^[Yy]$ ]] || return
+  fi
+  local key
+  key=$("$BIN_PATH" keygen)
+  echo
+  echo -e "${GRN}Shared key (use the SAME key on both servers):${NC}"
+  echo -e "${GRN}$key${NC}"
+  echo
+  echo "Paste it when the installer asks for the key (server: Enter a key / Advanced: answer n"
+  echo "to 'Generate a new shared key?'; client: 'Shared key'). Never post it publicly."
+}
+
 status_logs() {
   echo "1) server status  2) client status  3) server logs  4) client logs"
   read -rp "choice: " c
@@ -414,18 +437,20 @@ main_menu() {
   echo "1) Quick setup -- server (Iran / entry side)"
   echo "2) Quick setup -- client (abroad / exit side)"
   echo "3) Advanced setup (CDN, TLS certificate, UDP, port hopping)"
-  echo "4) Status / logs"
-  echo "5) Restart service(s)"
-  echo "6) Uninstall"
+  echo "4) Generate shared key"
+  echo "5) Status / logs"
+  echo "6) Restart service(s)"
+  echo "7) Uninstall"
   echo "0) Exit"
   read -rp "> " choice
   case "$choice" in
     1) quick_server ;;
     2) quick_client ;;
     3) advanced_menu ;;
-    4) status_logs ;;
-    5) restart_services ;;
-    6) uninstall_all ;;
+    4) generate_key ;;
+    5) status_logs ;;
+    6) restart_services ;;
+    7) uninstall_all ;;
     0) exit 0 ;;
     *) echo "invalid choice" ;;
   esac
