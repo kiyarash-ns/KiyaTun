@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type udpSess struct {
+type agentUDPSess struct {
 	seen   map[uint32]struct{}
 	bySize map[int]int
 	last   time.Time
@@ -23,7 +23,7 @@ type agent struct {
 	secret  string
 	udp     cipher.AEAD
 	mu      sync.Mutex
-	sess    map[uint64]*udpSess
+	sess    map[uint64]*agentUDPSess
 	filler  []byte
 	pending int32 // unauthenticated TCP connections currently held open
 }
@@ -37,7 +37,7 @@ func runAgent(addr, secret string) error {
 	a := &agent{
 		secret: secret,
 		udp:    newUDPAEAD(secret),
-		sess:   map[uint64]*udpSess{},
+		sess:   map[uint64]*agentUDPSess{},
 		filler: randBytes(recMax),
 	}
 	ln, err := net.Listen("tcp", addr)
@@ -96,7 +96,7 @@ func (a *agent) udpLoop(uc *net.UDPConn) {
 				a.mu.Unlock()
 				continue
 			}
-			s = &udpSess{seen: map[uint32]struct{}{}, bySize: map[int]int{}}
+			s = &agentUDPSess{seen: map[uint32]struct{}{}, bySize: map[int]int{}}
 			a.sess[p.sid] = s
 		}
 		s.last = time.Now()
