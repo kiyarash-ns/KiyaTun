@@ -1,3 +1,4 @@
 tunx
 tunx-linux-*
 *.env
+.github/
