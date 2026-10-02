@@ -57,14 +57,14 @@
 
 ### نصب سریع
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<username>/<repo>/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
 ```
 منوی ساده میاد بالا: روی سرور ایران **Quick setup — server**، روی سرور
 خارج **Quick setup — client**. کلید رو کپی کن، تموم.
 
 ### نصب دستی
 ```bash
-git clone https://github.com/<username>/<repo>.git && cd <repo>
+git clone https://github.com/kiyarash-ns/KiyaTun.git && cd <repo>
 go build -o tunx .
 ./tunx keygen                                              # یه بار، یادداشت کن
 
@@ -180,12 +180,12 @@ than oversold).
 
 ### Quick install
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<username>/<repo>/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/kiyarash-ns/KiyaTun/main/scripts/install.sh)
 ```
 
 ### Manual
 ```bash
-git clone https://github.com/<username>/<repo>.git && cd <repo>
+git clone https://github.com/kiyarash-ns/KiyaTun.git && cd <repo>
 go build -o tunx .
 ./tunx keygen
 
