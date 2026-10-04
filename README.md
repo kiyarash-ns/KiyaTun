@@ -12,6 +12,7 @@
 ```
 
 **A lightweight, zero-dependency reverse TCP tunnel written in pure Go,<br>built for networks where the exit side can't expose any inbound port.**
+Telegram : @Net_duck
 
 ![Go](https://img.shields.io/badge/Go-pure-00ADD8?logo=go&logoColor=white)
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
